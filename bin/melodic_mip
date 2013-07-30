@@ -1,0 +1,127 @@
+#!/bin/bash
+usage()
+{
+cat << EOF
+usage: $0 [options] melodic_dir
+
+This script create Maximal Intensity projection images for all thresholded zmaps of a melodic result.
+
+OPTIONS:
+  -v verbose
+  -h show this help
+
+OUTPUT:
+  ${melodic_dir}/report/thresh_zstat([0-9]+)_mip.png
+  ${melodic_dir}/report/mip.html
+
+See also : melodic
+
+EOF
+}
+
+MELODIC_DIR=
+VERBOSE=0
+while getopts "hv" OPTION
+do
+  case $OPTION in
+    h)
+      usage
+      exit 1
+      ;;
+    v)
+      VERBOSE=1
+      ;;
+    ?)
+      usage
+      exit
+      ;;
+  esac
+done
+
+for last; do true; done
+  MELODIC_DIR=$last
+
+
+if [[ -z $MELODIC_DIR ]]; then
+  usage
+  exit 1
+fi
+
+
+# check melodic results
+if [ ! -d ${MELODIC_DIR} ];then
+  echo "${MELODIC_DIR} - Not a directory"
+  exit 2
+fi 
+STATS_DIR=${MELODIC_DIR}/stats
+if [ ! -d ${STATS_DIR} ];then
+  echo "${STATS_DIR} - Not a directory (did you use --Ostats with melodic ?)"
+  exit 2
+fi 
+REPORT_DIR=${MELODIC_DIR}/report
+if [ ! -d ${REPORT_DIR} ];then
+  echo "Warning: ${REPORT_DIR} - Not a directory (did you use --report with melodic ?)"
+  echo "mkdir ${REPORT_DIR}"
+  mkdir ${REPORT_DIR}
+fi 
+MASK=${MELODIC_DIR}/mask
+if [ ! `imtest ${MASK}` ]; then
+  echo "${MASK} - doesn't exist"
+  exit 2
+fi
+
+
+if [ ${VERBOSE} ]; then echo "Create mask MIP..."; fi
+for dim in X Y Z; do
+  fslmaths ${MASK} -${dim}max ${$}mask_${dim}max
+done
+
+if [ ${VERBOSE} ]; then echo "Create MIP..."; fi
+for thresh_zmap in `imglob ${STATS_DIR}/thresh_zstat*`
+do
+  thresh_zmap_base=`basename ${thresh_zmap}`
+  thresh_zmap_base=`remove_ext ${thresh_zmap_base}`
+  if [ ${VERBOSE} ]; then echo "zstat image: ${thresh_zmap_base}"; fi
+  # IC number
+  [[ ${thresh_zmap_base} =~ thresh_zstat([0-9]+) ]]
+  ic=${BASH_REMATCH[1]}
+
+  # zmax value
+  zmax=`fslstats ${thresh_zmap} -R | cut -f2 -d' '`
+
+  # For each dimension
+  for dim in X Y Z; do
+    # MIP
+    fslmaths ${thresh_zmap} -${dim}max ${$}zmap_${dim}max
+    # Overlay with the mask
+    overlay 0 1 ${$}mask_${dim}max 0 1 ${$}zmap_${dim}max 0.1 $zmax ${$}rend_mip_${dim};
+    # Slice
+    slicer ${$}rend_mip_${dim} -${dim,,} 0 ${$}rend_mip_${dim}.ppm 
+    #convert it to a png
+    convert ${$}rend_mip_${dim}.ppm ${$}rend_mip_${dim}.png
+  done
+  
+  # montage
+  montage ${$}rend_mip_X.png ${$}rend_mip_Y.png ${$}rend_mip_Z.png -background black ${REPORT_DIR}/thresh_zstat`zeropad ${ic} 4`_mip.png
+done
+
+HTML=${REPORT_DIR}/mip.html
+if [ ${VERBOSE} ]; then echo "Create ${HTML}"; fi
+echo \<html\> > ${HTML}
+
+for mip in ${REPORT_DIR}/*_mip.png
+do
+  mip_base=`basename ${mip} .png`
+  [[ ${mip} =~ thresh_zstat([0-9]+)_mip.png ]]
+  ic=$(( 10#${BASH_REMATCH[1]} ))
+  echo \<a href\=\"IC_${ic}.html\"\>IC_${ic}\</a\>\<br/\> >> ${HTML}
+  echo \<img src\=\"${mip_base}.png\" /\> >> ${HTML}
+  echo \<img src\=\"t${ic}.png\" /\>\<br/\> >> ${HTML}
+done
+echo \</html\> >> ${HTML}
+
+
+if [ ${VERBOSE} ]; then echo "remove temporary files..."; fi
+rm ${$}*;
+
+if [ ${VERBOSE} ]; then echo "finish"; fi
