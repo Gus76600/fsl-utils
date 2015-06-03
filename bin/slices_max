@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# This script creates 3 orthogonal slices centered around 
+# the maximum value of a statistical map
+#
+# background_image and stat_image should have the same dimension
+# thresh stat correponds to the threshold of the statistical map
+# output correspond to the png file of the slices
+
+background_image=$1
+stat_image=$2
+thresh_stat=$3
+output=$4
+
+# get the maximum value of the statistical map
+min_max=`fslstats $2 -R`
+max=`echo $min_max | cut -f 2 -d ' '`
+
+# get the coordinate of the maximum
+max_coordinates=`fslstats $stat_image -x`
+max_x=`echo $max_coordinates | cut -f 1 -d ' '`
+max_y=`echo $max_coordinates | cut -f 2 -d ' '`
+max_z=`echo $max_coordinates | cut -f 3 -d ' '`
+
+# create the image background + stat_image (see overlay)
+overlay 1 0 $background_image -a $stat_image $thresh_stat $max overlay.nii
+
+# create the slices centered around the maximum
+slicer overlay.nii -u \
+    -x -$max_x slice_x.png -y -$max_y slice_y.png -z -$max_z slice_z.png
+
+# append the three slices to create the final png
+pngappend slice_x.png + slice_y.png + slice_z.png all_slices.png
+
+mv all_slices.png $output
