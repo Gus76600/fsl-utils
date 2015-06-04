@@ -14,13 +14,20 @@ output=$4
 
 # get the maximum value of the statistical map
 min_max=`fslstats $stat_image -R`
+min=`echo $min_max | cut -f 1 -d ' '`
 max=`echo $min_max | cut -f 2 -d ' '`
 
-# get the coordinate of the maximum
-max_coordinates=`fslstats $stat_image -x`
-max_x=`echo $max_coordinates | cut -f 1 -d ' '`
-max_y=`echo $max_coordinates | cut -f 2 -d ' '`
-max_z=`echo $max_coordinates | cut -f 3 -d ' '`
+# get the coordinate of the maximum (we use cluster to get the coordinate both
+# in voxels and mm)
+cluster=`cluster -i $stat_image -t $min | tail -n 1`
+max_x=`echo $cluster | cut -d ' ' -f 4`
+max_y=`echo $cluster | cut -d ' ' -f 5`
+max_z=`echo $cluster | cut -d ' ' -f 6`
+cluster=`cluster -i $stat_image -t $min --mm | tail -n 1`
+max_x_mm=`echo $cluster | cut -d ' ' -f 4`
+max_y_mm=`echo $cluster | cut -d ' ' -f 5`
+max_z_mm=`echo $cluster | cut -d ' ' -f 6`
+echo $max_x_mm $max_y_mm $max_z_mm
 
 # create the image background + stat_image (see overlay)
 overlay 1 0 $background_image -a $stat_image $thresh_stat $max overlay.nii
