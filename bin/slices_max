@@ -30,7 +30,7 @@ max_z_mm=`echo $cluster | cut -d ' ' -f 6`
 echo $max_x_mm $max_y_mm $max_z_mm
 
 # create the image background + stat_image (see overlay)
-overlay 1 0 $background_image -a $stat_image $thresh_stat $max overlay.nii
+overlay 0 0 $background_image -a $stat_image $thresh_stat $max overlay.nii
 
 # create the slices centered around the maximum
 slicer overlay.nii -u \
