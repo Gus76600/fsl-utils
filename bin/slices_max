@@ -13,7 +13,7 @@ thresh_stat=$3
 output=$4
 
 # get the maximum value of the statistical map
-min_max=`fslstats $2 -R`
+min_max=`fslstats $stat_image -R`
 max=`echo $min_max | cut -f 2 -d ' '`
 
 # get the coordinate of the maximum
